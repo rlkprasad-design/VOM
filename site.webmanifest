@@ -1,0 +1,12 @@
+{
+  "name": "Management Quest",
+  "short_name": "Mgmt Quest",
+  "description": "A recall game for Values-Oriented Management.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1c2436",
+  "theme_color": "#232e47",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

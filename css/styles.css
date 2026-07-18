@@ -1,0 +1,417 @@
+:root {
+  --ink: #1c2436;
+  --panel: #232e47;
+  --panel-light: #2c3a5a;
+  --indigo: #3a4d8f;
+  --indigo-light: #6d84d6;
+  --paper: #f4f1e9;
+  --gold: #d4a72c;
+  --gold-light: #e9c96b;
+  --found: #3f8f5f;
+  --wrong: #c0483c;
+  --radius: 16px;
+  --bronze: #b8783a;
+  --silver: #b8bec9;
+  --gold-token: #e0b23a;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at 50% 0%, #2a3a63 0%, var(--ink) 65%);
+  color: var(--paper);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+h1, h2, h3, .display {
+  font-family: inherit;
+  font-weight: 700;
+  color: var(--gold-light);
+  margin: 0 0 0.4em;
+  letter-spacing: 0.2px;
+}
+
+#app {
+  max-width: 900px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 28px 24px 56px;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.top-bar .player { font-size: 0.85rem; color: var(--gold); }
+
+.title-block { text-align: center; margin-bottom: 24px; }
+.tagline, .title-block .tagline { color: var(--indigo-light); font-size: 0.95rem; }
+
+/* Buttons ------------------------------------------------------------ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 12px 24px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.08s ease, background 0.15s ease;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+
+.btn-primary { background: var(--gold); color: #23180a; }
+.btn-primary:hover { background: var(--gold-light); }
+
+.btn-secondary { background: transparent; color: var(--paper); border-color: var(--indigo-light); }
+.btn-secondary:hover { background: rgba(109, 132, 214, 0.12); }
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--gold-light);
+  text-decoration: underline;
+  min-height: auto;
+  padding: 4px 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.btn-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+/* Name gate ------------------------------------------------------------ */
+
+.name-gate { text-align: center; padding-top: 8vh; max-width: 480px; margin: 0 auto; }
+
+.text-input {
+  font-size: 1.1rem;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 2px solid var(--indigo-light);
+  width: 100%;
+  max-width: 320px;
+  margin: 20px auto;
+  display: block;
+  text-align: center;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.resume-notice {
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid var(--gold);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin: 20px auto 0;
+  max-width: 400px;
+}
+.resume-notice-text { margin: 0 0 14px; font-size: 0.92rem; line-height: 1.6; }
+
+/* Intro / About -------------------------------------------------------- */
+
+.intro-screen { max-width: 680px; margin: 0 auto; padding: 2vh 4px; }
+.intro-screen p { margin: 0 0 16px; line-height: 1.7; }
+
+/* Mode choice ----------------------------------------------------------- */
+
+.mode-choice {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+  margin-top: 16px;
+}
+.mode-btn {
+  padding: 32px 22px;
+  border-radius: 20px;
+  border: 2px solid var(--indigo-light);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.12));
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  text-align: center;
+  color: var(--paper);
+}
+.mode-btn:hover { border-color: var(--gold); }
+.mode-btn .display { font-size: 1.35rem; margin-bottom: 6px; color: var(--gold-light); }
+.mode-btn .sub { color: var(--paper); opacity: 0.8; font-size: 0.9rem; }
+
+/* Word search grid ------------------------------------------------------ */
+
+.grid-frame {
+  border: 2px solid var(--indigo-light);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.12));
+  padding: 18px;
+  margin: 0 auto 20px;
+  max-width: 640px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+.grid {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  touch-action: none;
+  user-select: none;
+  margin: 0 auto;
+  max-width: 560px;
+  width: 100%;
+}
+
+.cell {
+  position: relative;
+  aspect-ratio: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--paper);
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: var(--cell-font-size, clamp(0.75rem, 3vw, 1.15rem));
+  color: var(--ink);
+  transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+}
+
+.cell.selected { background: var(--gold-light); }
+.cell.found { background: var(--found); color: #fff; }
+.cell.found.via-hint { background: var(--gold); color: #23180a; }
+.cell.wrong { background: var(--wrong); color: #fff; }
+
+.cell.direction-pointer::after {
+  content: "➤";
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  font-size: 0.5em;
+  line-height: 1;
+  color: var(--ink);
+  background: var(--gold);
+  border-radius: 50%;
+  width: 1.5em;
+  height: 1.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(var(--pointer-angle, 0deg));
+  pointer-events: none;
+}
+
+/* Celebratory burst of the earned token - see popMarkFeedback in app.js.
+   Appended to the round's own relatively-positioned container (the grid,
+   or the spelling answer row's parent), never to the found cell/tile - a
+   .cell has overflow:hidden (so a long word can't spill into its
+   neighbor), which would otherwise clip this animation to invisibility
+   the instant it started growing past the cell's edge. Positioned with an
+   inline left/top in px from the anchor element's own offset, and sized
+   off --cell-font-size so it stays proportional at any grid size. */
+.mark-pop {
+  position: absolute;
+  width: calc(var(--cell-font-size, 1.5rem) * 1.8);
+  height: calc(var(--cell-font-size, 1.5rem) * 1.8);
+  pointer-events: none;
+  z-index: 5;
+  animation: mark-pop 1.3s ease-out forwards;
+}
+.mark-pop svg { display: block; width: 100%; height: 100%; }
+.mark-pop-easy { color: var(--bronze); }
+.mark-pop-medium { color: var(--silver); }
+.mark-pop-difficult { color: var(--gold-token); }
+
+@keyframes mark-pop {
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+  15% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  70% { transform: translate(-50%, -50%) scale(10); opacity: 0.55; }
+  100% { transform: translate(-50%, -50%) scale(12); opacity: 0; }
+}
+
+/* Hints / clues panel ----------------------------------------------------- */
+
+.hints-panel { padding: 0; }
+.hints-panel h3 {
+  font-size: 1.05rem;
+  border-bottom: 1px solid rgba(233, 201, 107, 0.3);
+  padding-bottom: 6px;
+}
+.flag-hint-note { font-size: 0.8rem; color: var(--indigo-light); opacity: 0.9; margin: 8px 0; }
+.hint-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  margin-bottom: 8px;
+}
+.hint-item .hint-word { font-weight: 700; color: var(--gold-light); min-width: 3ch; }
+.hint-item.pending .hint-word {
+  color: transparent;
+  background: rgba(233, 201, 107, 0.15);
+  border-radius: 6px;
+}
+.hint-item .hint-meaning { color: var(--paper); opacity: 0.9; font-size: 0.92rem; }
+.hint-item .hint-count { color: var(--indigo-light); opacity: 0.85; font-size: 0.85rem; white-space: nowrap; }
+.hint-item.found { background: rgba(63, 143, 95, 0.3); }
+
+.flag-btn {
+  margin-left: auto;
+  flex: none;
+  width: 1.3em;
+  height: 1.3em;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--paper);
+  opacity: 0.35;
+  cursor: pointer;
+}
+.flag-btn svg { display: block; width: 100%; height: 100%; }
+.flag-btn:hover, .flag-btn:focus-visible { opacity: 0.75; }
+.flag-btn.flagged { color: var(--gold-token); opacity: 0.9; cursor: default; }
+.flag-btn:disabled:not(.flagged) { opacity: 0.2; cursor: default; }
+
+.token-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.2em;
+}
+.token-icon svg { display: block; width: 100%; height: 100%; }
+.token-icon.token-easy { color: var(--bronze); }
+.token-icon.token-medium { color: var(--silver); }
+.token-icon.token-difficult { color: var(--gold-token); }
+
+.game-toolbar { display: flex; justify-content: center; gap: 12px; margin: 18px 0; flex-wrap: wrap; }
+
+/* Spelling challenge ------------------------------------------------------ */
+
+.spelling-frame {
+  position: relative;
+  border: 2px solid var(--indigo-light);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.12));
+  padding: 28px 20px;
+  margin: 0 auto 20px;
+  max-width: 640px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  text-align: center;
+}
+
+.spelling-meaning {
+  color: var(--paper);
+  opacity: 0.9;
+  font-size: 1.05rem;
+  max-width: 520px;
+  margin: 0 auto 24px;
+}
+
+.spelling-answer {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+  transition: transform 0.1s;
+}
+.spelling-answer.wrong { animation: shake 0.4s; }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+.answer-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.6rem;
+  border-bottom: 3px solid var(--indigo-light);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--gold-light);
+}
+.answer-slot.filled { border-bottom-color: var(--gold); }
+.answer-slot.via-hint { color: var(--gold-token); border-bottom-color: var(--gold-token); }
+
+.spelling-tiles {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.letter-tile {
+  min-width: 2.6rem;
+  height: 2.6rem;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 2px solid var(--indigo-light);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.08s, opacity 0.15s;
+}
+.letter-tile:active { transform: scale(0.94); }
+.letter-tile.used { opacity: 0; pointer-events: none; }
+.letter-tile:disabled:not(.used) { opacity: 0.5; cursor: default; }
+
+/* Scoreboard --------------------------------------------------------------- */
+
+.score-section { margin-bottom: 28px; }
+.token-legend { font-size: 0.88rem; color: var(--indigo-light); opacity: 0.95; margin: 0 0 14px; line-height: 1.6; }
+.token-legend .token-icon { margin: 0 2px; }
+.score-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 2px solid var(--indigo-light);
+}
+.score-table th, .score-table td {
+  padding: 10px 14px;
+  text-align: right;
+  border-bottom: 1px solid rgba(233, 201, 107, 0.15);
+  color: var(--paper);
+}
+.score-table th { background: rgba(0, 0, 0, 0.2); color: var(--gold-light); }
+.score-toggle { text-align: center; margin: 10px 0 0; }
+.score-toggle button { font-size: 0.9rem; }
+.score-note { color: var(--indigo-light); opacity: 0.95; font-size: 0.85rem; margin-top: 8px; }
+
+/* Round complete / pool exhausted ------------------------------------------- */
+
+.complete-screen { text-align: center; padding: 8vh 12px; color: var(--gold-light); }
+.complete-screen .glow { font-size: 3rem; margin-bottom: 16px; }
+.complete-screen p { max-width: 480px; margin: 0 auto 8px; color: var(--paper); opacity: 0.9; }
+
+@media (max-width: 640px) {
+  #app { padding: 20px 14px 44px; }
+  html, body { font-size: 16px; }
+  .mode-choice { grid-template-columns: 1fr; }
+}
