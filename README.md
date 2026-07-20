@@ -51,7 +51,7 @@ answer is never mistaken for a genuine find.
 - `data/questions.json`: the single content pool. Each entry is
   `{ word, meaning, scenario, difficulty, source }`.
   - `word`: a single unbroken token (no spaces), uppercase, ≤ the largest
-    grid size any level can roll (currently 12 characters).
+    grid size any level can roll (currently 14 characters).
   - `meaning`: a short definition/hint shown in Word Search's clue panel
     and above Spelling Challenge's tiles. Soft limit ~120 characters.
   - `scenario`: a short situational description (e.g. "A vendor offers a
