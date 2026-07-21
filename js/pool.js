@@ -142,8 +142,24 @@ export function sampleMixedEntries({ pool, scopeKey, totalCount, weights = EVEN_
 
     const tierWords = new Set(tierPool.map((e) => e.word));
     const key = `${scopeKey}::${difficulty}`;
-    const queue = (drawQueues.get(key) || []).filter((e) => tierWords.has(e.word));
+    let queue = (drawQueues.get(key) || []).filter((e) => tierWords.has(e.word));
     startNewCycleIfEmpty(queue, tierPool);
+
+    // A queue can be non-empty yet entirely useless for this round: every
+    // word still waiting this cycle might be one `fits` rejects (e.g. every
+    // remaining word too long for the rolled grid size), while plenty of
+    // eligible words (per eligibleNow above) already had their turn earlier
+    // this same cycle. Waiting for those queued words' turn assumes a
+    // roll that can actually draw them will come soon - true for Nama
+    // Nidhi's wide, frequently-varying grid-size range, but false for a
+    // caller whose size stays pinned for a long stretch (a beginner not
+    // yet completing rounds, or a level with a narrow size range): the
+    // cycle would never complete, and this tier would silently
+    // contribute nothing until it did. Starting a fresh cycle here is a
+    // deliberate compromise over that deadlock - a word may get its next
+    // turn a little earlier than a strict "everyone once" cycle would
+    // allow, but only when nothing queued can be drawn anyway.
+    if (!queue.some(fits)) queue = shuffle(tierPool);
 
     const { drawn, remaining } = drawFromQueue(queue, count, fits);
     entries.push(...drawn);

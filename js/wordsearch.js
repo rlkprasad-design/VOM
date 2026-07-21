@@ -8,7 +8,7 @@
 // clusters for Telugu consonant+vowel-sign combinations; a Latin word has
 // no such multi-codepoint concept).
 
-import { sampleMixedEntries, randomInt } from './pool.js';
+import { sampleMixedEntries, randomInt, MAX_WORD_EXPOSURES } from './pool.js';
 
 export const LATIN_POOL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
@@ -44,14 +44,48 @@ export function gridSizeCapForExperience(roundsCompleted, min, max) {
   return Math.round(min + (max - min) * t);
 }
 
+// How many pool entries (any tier) would actually be eligible to draw at
+// this grid size, given the player's current exposure - a pure count,
+// with no draw-queue side effects, so callers can check "is this size
+// worth trying" before committing to a real (queue-mutating) draw.
+function eligibleCountAtSize(pool, exposure, size) {
+  return pool.filter((e) => e.word.length <= size && (exposure[e.word] || 0) < MAX_WORD_EXPOSURES).length;
+}
+
+// A round needs at least this many eligible words across all tiers combined
+// before a size is worth committing to - otherwise a round risks coming out
+// as one word, or none at all.
+const MIN_ELIGIBLE_FOR_ROUND = 4;
+
 // Rolls a grid size (capped for newer players) and draws a mix of
 // easy/medium/difficult entries sized to fit that roll, via pool.js's
 // shared draw-queue rotation. `scopeKey` namespaces the rotation so word
 // search's draws never interfere with spelling mode's, even when both
 // pull from the same content pool.
+//
+// The rolled size's own eligible pool can run dry well before the pool as
+// a whole does: a handful of short words at the level's minimum size will
+// hit their exposure cap sooner than the many longer words that only fit
+// larger grids - especially for a content curator regenerating puzzles
+// during review without completing them (each regenerate still counts as
+// "shown"). Rather than commit to a roll that's already thin, this
+// escalates in two stages: first toward cappedMax (staying inside the
+// beginner ramp), then - if even cappedMax's own eligible pool is thin -
+// the rest of the way to the level's real gridSizeMax. That second stage
+// matters: gridSizeCapForExperience only grows on COMPLETED rounds, so a
+// player stuck with an empty roll at their current cap could never
+// complete one to raise it, a deadlock that would trap them at
+// gridSizeMin forever. Breaking past the beginner cap when it's
+// genuinely got nothing left is better than that deadlock.
 export function sampleWordSearchRound({ pool, level, weights, roundsCompleted = Infinity, exposure = {}, scopeKey = 'wordsearch::general' }) {
   const cappedMax = gridSizeCapForExperience(roundsCompleted, level.gridSizeMin, level.gridSizeMax);
-  const gridSize = randomInt(level.gridSizeMin, cappedMax);
+  let gridSize = randomInt(level.gridSizeMin, cappedMax);
+  while (gridSize < cappedMax && eligibleCountAtSize(pool, exposure, gridSize) < MIN_ELIGIBLE_FOR_ROUND) {
+    gridSize += 1;
+  }
+  while (gridSize < level.gridSizeMax && eligibleCountAtSize(pool, exposure, gridSize) < MIN_ELIGIBLE_FOR_ROUND) {
+    gridSize += 1;
+  }
   const totalCount = entryCountForGridSize(gridSize);
   const entries = sampleMixedEntries({
     pool,

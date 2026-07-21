@@ -347,7 +347,18 @@ function renderWordSearchSession(level, pool) {
     });
     return;
   }
-  renderWordSearchGame(buildWordSearchSession(level, pool));
+  const session = buildWordSearchSession(level, pool);
+  // The rolled size's eligible words can still come out thin even after
+  // sampleWordSearchRound's own escalation attempt - most commonly a
+  // beginner stuck at the level's minimum size (which only grows as
+  // rounds are actually completed) whose few short words got exposure-
+  // capped from repeated regeneration. Rather than render a near-empty
+  // grid, point at Spelling Challenge, which has no size constraint.
+  if (session.placements.length < 2) {
+    showWordSearchTooThin();
+    return;
+  }
+  renderWordSearchGame(session);
 }
 
 function buildWordSearchSession(level, pool) {
@@ -836,6 +847,31 @@ function showPoolExhausted({ backAction, switchLabel, onSwitch }) {
   `);
   screen.querySelector('[data-switch]').addEventListener('click', onSwitch);
   screen.querySelector('[data-back]').addEventListener('click', backAction);
+  setScreen(screen);
+}
+
+// Distinct from showPoolExhausted (the whole pool is used up): this fires
+// when the rolled grid size's eligible words came out thin even after
+// sampleWordSearchRound's own escalation attempt - typically a beginner
+// stuck at the level's minimum size (which only grows as rounds are
+// actually completed) whose few short words got exposure-capped from
+// repeated regeneration. Points at Spelling Challenge, which has no size
+// constraint, rather than leaving them stuck regenerating an ever-emptier
+// grid.
+function showWordSearchTooThin() {
+  const screen = el(`
+    <div class="complete-screen">
+      <div class="glow">🧩</div>
+      <h2>Running low on short terms right now</h2>
+      <p>The terms that fit the current grid size have been asked a lot already. Try the Spelling Challenge instead - it isn't limited by grid size - or complete a round or two here first so the grid can grow.</p>
+      <div class="btn-row" style="margin-top:24px;">
+        <button type="button" class="btn btn-primary" data-switch>Try the Spelling Challenge</button>
+        <button type="button" class="btn btn-secondary" data-back>Back</button>
+      </div>
+    </div>
+  `);
+  screen.querySelector('[data-switch]').addEventListener('click', startSpelling);
+  screen.querySelector('[data-back]').addEventListener('click', showHome);
   setScreen(screen);
 }
 
