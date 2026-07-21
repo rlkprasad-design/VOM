@@ -182,6 +182,7 @@ async function boot() {
 function showNameGate() {
   const screen = el(`
     <div class="name-gate">
+      <img src="icons/icon.svg" alt="" class="home-logo" width="88" height="88" />
       <h1 class="display">Management Quest</h1>
       <p class="tagline">Recall the values and frameworks from Values-Oriented Management.</p>
       <p>Enter a display name to begin. No password, no account.</p>
@@ -270,6 +271,7 @@ function showHome() {
   const screen = el(`
     <div>
       <div class="title-block">
+        <img src="icons/icon.svg" alt="" class="home-logo" width="72" height="72" />
         <h1 class="display">Management Quest</h1>
         <p class="tagline">Values-Oriented Management, one recall round at a time.</p>
       </div>
