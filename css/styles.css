@@ -55,6 +55,13 @@ h1, h2, h3, .display {
 .title-block { text-align: center; margin-bottom: 24px; }
 .tagline, .title-block .tagline { color: var(--indigo-light); font-size: 0.95rem; }
 
+.home-logo {
+  display: block;
+  margin: 0 auto 14px;
+  border-radius: 18px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(233, 201, 107, 0.15);
+}
+
 /* Buttons ------------------------------------------------------------ */
 
 .btn {
