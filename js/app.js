@@ -332,8 +332,9 @@ function cellFontSize(gridSize) {
 }
 
 async function startWordSearch() {
-  const [levels, pool] = await Promise.all([loadLevels(), loadEntryPool()]);
-  renderWordSearchSession(levels[0], pool);
+  const content = await loadGameContent();
+  if (!content) { showContentLoadError(); return; }
+  renderWordSearchSession(content.levels[0], content.pool);
 }
 
 function renderWordSearchSession(level, pool) {
@@ -548,8 +549,9 @@ function recordWordSearchProgress(session) {
 const SPELLING_SCOPE = 'spelling::general';
 
 async function startSpelling() {
-  const [levels, pool] = await Promise.all([loadLevels(), loadEntryPool()]);
-  renderSpellingSession(levels[0], pool);
+  const content = await loadGameContent();
+  if (!content) { showContentLoadError(); return; }
+  renderSpellingSession(content.levels[0], content.pool);
 }
 
 function renderSpellingSession(level, pool) {
@@ -755,6 +757,46 @@ function recordSpellingProgress(session) {
   const progress = { mode: 'spelling', ...tallyRound(session.items) };
   recordRoundProgressLocal(progress, state.playerName);
   if (state.playerId && syncsToBackend()) syncQuestProgress(state.playerId, progress);
+}
+
+// ---------------------------------------------------------------------
+// Content loading
+// ---------------------------------------------------------------------
+
+// Fetches the level ladder and content pool for either exercise type,
+// returning null (rather than throwing or silently proceeding) if either
+// request fails or comes back empty. Building a round from an empty pool
+// used to fail silently - a grid of pure filler letters with an empty
+// clue panel, which looks like broken content rather than a network
+// error. Surfacing it as showContentLoadError() instead means a real
+// fetch failure is never mistaken for "there's nothing to find here."
+async function loadGameContent() {
+  try {
+    const [levels, pool] = await Promise.all([loadLevels(), loadEntryPool()]);
+    if (!pool || !pool.length || !levels || !levels.length) {
+      console.warn('Content loaded but empty:', { pool, levels });
+      return null;
+    }
+    return { levels, pool };
+  } catch (err) {
+    console.warn('Failed to load content:', err);
+    return null;
+  }
+}
+
+function showContentLoadError() {
+  const screen = el(`
+    <div class="complete-screen">
+      <div class="glow">⚠️</div>
+      <h2>Couldn't load the term list</h2>
+      <p>Something prevented the content from loading - usually a temporary network hiccup. Try refreshing the page.</p>
+      <div class="btn-row" style="margin-top:24px;">
+        <button type="button" class="btn btn-primary" data-retry>Refresh</button>
+      </div>
+    </div>
+  `);
+  screen.querySelector('[data-retry]').addEventListener('click', () => location.reload());
+  setScreen(screen);
 }
 
 // ---------------------------------------------------------------------
