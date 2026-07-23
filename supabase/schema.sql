@@ -140,9 +140,17 @@ create policy "anyone can log time"
 -- correlated subquery rather than a second join, since joining time_log
 -- directly alongside quest_progress would multiply rows (a cross join of
 -- every round against every time-log entry) and silently inflate every
--- summed total.
+-- summed total. Dropped and recreated rather than `create or replace` -
+-- Postgres only allows that form to append new trailing columns, not
+-- insert or reorder any, and this view has grown columns in the middle
+-- (the per-mode marks columns land before rounds_completed) since its
+-- first release, which `create or replace` rejects with "cannot change
+-- name of view column". A plain drop+create has no such restriction and
+-- is just as safe to re-run, since nothing else in this schema depends
+-- on this view.
 
-create or replace view quest_leaderboard as
+drop view if exists quest_leaderboard;
+create view quest_leaderboard as
 select
   p.display_name,
   coalesce(sum(qp.bronze_found), 0) as total_bronze,
