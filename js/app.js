@@ -1261,7 +1261,6 @@ async function showScoreboard() {
         { key: 'truefalse_marks', label: 'True/False' },
         { key: 'grouping_marks', label: 'Grouping' },
         { key: 'total_marks', label: 'Marks' },
-        { key: 'rounds_completed', label: 'Rounds' },
         { key: 'total_time_seconds', label: 'Time', format: formatDuration },
       ],
       'data-quest-board',
