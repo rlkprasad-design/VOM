@@ -14,13 +14,20 @@ without it, the game still runs fully offline with a local-only tally.
   term, in any of 8 directions.
 - **Spelling Challenge**: tap scrambled letter tiles back into the right
   order to spell each term.
+- **True/False**: judge whether a claim about a term (its own meaning/
+  scenario, or a different term's borrowed for a false claim) is true or
+  false.
+- **Card Grouping**: sort term cards into the category bucket each one
+  belongs to, using each entry's existing `source` tag.
 
-Both modes draw from the same content pool (`data/questions.json`) but
-keep independent no-repeat rotations and exposure caps, so playing one
-mode never uses up the other's words. More exercise types (true/false,
-card grouping, mapping) can be added later without touching either of
-these - see `js/pool.js` for the shared, mode-agnostic sampling engine
-both currently plug into.
+All four modes draw from the same content pool (`data/questions.json`)
+but keep independent no-repeat rotations and exposure caps, so playing
+one mode never uses up another's words. A fifth exercise type (mapping,
+etc.) can be added later without touching any of these - see `js/pool.js`
+for the shared, mode-agnostic sampling engine Word Search, Spelling, and
+True/False plug into (Card Grouping draws by category instead of
+difficulty tier, so it keeps its own simpler selection logic in
+`js/grouping.js`, though it still respects the same exposure cap).
 
 ## Reward tiers
 
@@ -32,10 +39,25 @@ Every round mixes three difficulty tiers, grouped by Bloom's Taxonomy:
 | Medium | Apply, Analyze | Silver | 3 |
 | Difficult | Evaluate, Create | Gold | 6 |
 
-A token and its marks are earned **only** for a term found or spelled by
-the player themselves. "Show answer" completes the term but earns
-nothing, and is always shown in a visually distinct color so a shown
-answer is never mistaken for a genuine find.
+Word Search and Card Grouping are worth **double** these marks per find -
+hunting a word through a grid, or correctly recalling which category a
+term belongs to among several options, is a harder recall task than
+picking an already-isolated letter (Spelling) or making a binary guess
+(True/False). See `MODE_MULTIPLIERS` in `js/app.js`.
+
+A token and its marks are earned **only** for a term found by the player
+themselves. "Show answer" completes the term but earns nothing, and is
+always shown in a visually distinct color so a shown answer is never
+mistaken for a genuine find.
+
+## Time tracking
+
+Active play time (from entering a gameplay screen to leaving it, capped
+per screen-visit to guard against a forgotten idle tab) accumulates
+locally per player and, when Supabase is configured, syncs as its own
+append-only log - see `startPlayTimer`/`flushPlayTimer` in `js/app.js` and
+the `time_log` table in `supabase/schema.sql`. Shown on the Scoreboard as
+a sortable "Time" column.
 
 ## Setting up Supabase
 
@@ -56,13 +78,20 @@ answer is never mistaken for a genuine find.
     and above Spelling Challenge's tiles. Soft limit ~120 characters.
   - `scenario`: a short situational description (e.g. "A vendor offers a
     manager a gift to speed up an order. What value should guide their
-    response?") for a future "recognize this value in context" exercise
-    type. Not yet used by the UI - carried in the schema now so that
-    feature is additive later, not a data migration.
+    response?") - shown as True/False's claim text (falling back to
+    `meaning` when absent), so "recognize this value in context" recall is
+    already covered, not just plain definitions.
   - `difficulty`: `"easy" | "medium" | "difficult"` - exactly three tiers,
     mixed together in every round.
-  - `source`: a free-text category tag (e.g. `"core-values"`,
-    `"ethical-theories"`) - curator-only metadata, never shown to players.
+  - `source`: a category tag - curator-only metadata for Word Search/
+    Spelling/True-False (never shown to players there), but it's also the
+    actual category bucket Card Grouping sorts cards into, so for that
+    mode players *do* see it - `prettifySource` in `js/app.js` strips a
+    `topicN-` prefix and title-cases the rest for display (e.g.
+    `"topic3-neoclassical"` → "Neoclassical"), so the tag can stay a
+    compact curator slug without looking raw on screen. Keep at least 2
+    categories with 2+ entries each, or Card Grouping has nothing to build
+    a round from - the validator warns if this thins out.
 - `data/levels.json`: grid size range, filler mode, and spelling round
   size. Currently one level; the concept exists for future expansion.
 - Run `node scripts/validate-content.js` before opening a content PR - it

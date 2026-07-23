@@ -14,6 +14,7 @@ const PLAYER_ID_KEY = 'vom.playerId';
 const DRAW_QUEUES_KEY = 'vom.drawQueues';
 const WORD_EXPOSURE_KEY = 'vom.wordExposure';
 const ROUND_LOG_KEY = 'vom.roundLog';
+const TIME_SPENT_KEY = 'vom.timeSpent';
 
 export function playerScopedKey(baseKey, playerName) {
   return `${baseKey}.${playerName || '_default'}`;
@@ -109,4 +110,21 @@ export function getLocalTotals(playerName) {
     marksEarned: list.reduce((sum, e) => sum + (e.marks_earned || 0), 0),
     roundsCompleted: list.length,
   };
+}
+
+// Cumulative active play time, in seconds - see js/app.js's
+// startPlayTimer/flushPlayTimer for how a delta gets here (flushed on
+// every screen transition away from a gameplay screen, and best-effort on
+// tab close). Local-only tally, independent of whether any Supabase sync
+// of the same delta ever succeeds - same pattern as the marks/round log
+// above.
+export function getLocalTimeSpent(playerName) {
+  return Number(localStorage.getItem(playerScopedKey(TIME_SPENT_KEY, playerName))) || 0;
+}
+
+export function recordTimeSpent(seconds, playerName) {
+  const key = playerScopedKey(TIME_SPENT_KEY, playerName);
+  const total = (Number(localStorage.getItem(key)) || 0) + seconds;
+  localStorage.setItem(key, String(total));
+  return total;
 }

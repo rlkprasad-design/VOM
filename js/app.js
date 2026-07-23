@@ -3,6 +3,8 @@ import {
   generateGridReliable, LATIN_POOL,
 } from './wordsearch.js';
 import { sampleSpellingRound } from './spelling.js';
+import { sampleTrueFalseRound } from './truefalse.js';
+import { sampleGroupingRound } from './grouping.js';
 import {
   difficultyWeightsForExperience, exportDrawQueues, importDrawQueues,
   isPoolExhausted,
@@ -14,10 +16,11 @@ import {
   recordRoundProgressLocal, getLocalTotals,
   getPersistedDrawQueues, setPersistedDrawQueues,
   getWordExposureCounts, recordWordExposures,
+  recordTimeSpent,
 } from './storage.js';
 import {
   isBackendConfigured, ensurePlayer, syncQuestProgress,
-  fetchQuestLeaderboard, flagEntry, fetchFlaggedEntries,
+  fetchQuestLeaderboard, flagEntry, fetchFlaggedEntries, syncTimeSpent,
 } from './supabase-client.js';
 
 const root = document.getElementById('app');
@@ -53,9 +56,36 @@ function el(html) {
   return tpl.content.firstElementChild;
 }
 
-function setScreen(node) {
+// Active-play-time tracking: a "tracked" screen (the four gameplay modes)
+// starts a timer when it's shown; the very next setScreen call - to
+// anywhere, tracked or not - flushes the elapsed time before swapping in
+// the new content. A "New puzzle"/"Next round" re-render of the same mode
+// still goes through setScreen with tracked:true again, which correctly
+// banks the finished round's time and starts a fresh timer for the next
+// one, so time accumulates continuously across an unbroken play session.
+// Capped per flush so a forgotten idle tab can't inflate the total.
+const MAX_TRACKED_SESSION_SECONDS = 30 * 60;
+let playTimerStartedAt = null;
+
+function startPlayTimer() {
+  playTimerStartedAt = Date.now();
+}
+
+function flushPlayTimer() {
+  if (playTimerStartedAt == null) return;
+  const elapsed = Math.round((Date.now() - playTimerStartedAt) / 1000);
+  playTimerStartedAt = null;
+  if (elapsed <= 0) return;
+  const capped = Math.min(elapsed, MAX_TRACKED_SESSION_SECONDS);
+  recordTimeSpent(capped, state.playerName);
+  if (state.playerId && syncsToBackend()) syncTimeSpent(state.playerId, capped);
+}
+
+function setScreen(node, { tracked = false } = {}) {
+  flushPlayTimer();
   root.innerHTML = '';
   root.appendChild(node);
+  if (tracked) startPlayTimer();
 }
 
 function topBar({ backAction } = {}) {
@@ -79,6 +109,20 @@ function topBar({ backAction } = {}) {
 // ---------------------------------------------------------------------
 
 const MARKS = { easy: 1, medium: 3, difficult: 6 };
+
+// Word Search and Card Grouping take more effort per find than Spelling
+// or True/False - hunting a word through a grid, or correctly recalling
+// which category a term belongs to among several options, is a harder
+// recall task than picking already-isolated letters or making a binary
+// guess - so they're worth double the base tier value, not just an equal
+// flat mark across every mode.
+const MODE_MULTIPLIERS = { wordsearch: 2, spelling: 1, truefalse: 1, grouping: 2 };
+
+function marksForFind(difficulty, mode) {
+  return MARKS[difficulty] * MODE_MULTIPLIERS[mode];
+}
+
+const MODE_LABELS = { wordsearch: 'Word Search', spelling: 'Spelling', truefalse: 'True/False', grouping: 'Grouping' };
 
 const TOKEN_LABELS = { easy: 'Bronze', medium: 'Silver', difficult: 'Gold' };
 
@@ -265,6 +309,8 @@ function showNameGate() {
 const MODES = [
   { id: 'wordsearch', title: 'Word Search', sub: 'Drag through the grid to find each hidden term.', start: () => startWordSearch() },
   { id: 'spelling', title: 'Spelling Challenge', sub: 'Unscramble the jumbled letters to spell each term.', start: () => startSpelling() },
+  { id: 'truefalse', title: 'True / False', sub: 'Judge whether each claim about a term is true or false.', start: () => startTrueFalse() },
+  { id: 'grouping', title: 'Card Grouping', sub: 'Sort terms into the category each one belongs to.', start: () => startGrouping() },
 ];
 
 function showHome() {
@@ -304,9 +350,10 @@ function showAbout() {
     <div class="intro-screen">
       <h1 class="display" style="text-align:center;">About Management Quest</h1>
       <p>Management Quest is a recall game built to reinforce what you've learned in class about Values-Oriented Management - core values, ethical frameworks, corporate governance, and more.</p>
-      <p>Every round mixes easy, medium, and difficult terms. Easy terms are worth 1 mark, medium terms 3 marks, and difficult terms 6 marks - so recognizing a harder concept is worth visibly more than an easy one.</p>
-      <p>Find a term yourself by dragging or spelling it to earn its token and marks. Using "Show answer" completes the term but earns nothing, and is always shown in a different color so you can tell a genuine find from a reveal.</p>
-      <p>Scores sync to a shared class scoreboard. No login is required - just a display name.</p>
+      <p>Four exercises draw from the same term list: Word Search, Spelling Challenge, True/False, and Card Grouping.</p>
+      <p>Every round mixes easy, medium, and difficult terms. Easy terms are worth 1 mark, medium terms 3 marks, and difficult terms 6 marks - so recognizing a harder concept is worth visibly more than an easy one. Word Search and Card Grouping are worth double these marks per find, since hunting a word through a grid or correctly recalling its category takes more effort than picking an already-visible letter or making a binary guess.</p>
+      <p>Find a term yourself to earn its token and marks. Using "Show answer" completes the term but earns nothing, and is always shown in a different color so you can tell a genuine find from a reveal.</p>
+      <p>Scores, and time spent playing, sync to a shared class scoreboard. No login is required - just a display name.</p>
       <div class="btn-row" style="margin-top:24px;">
         <button type="button" class="btn btn-primary" data-back>Back</button>
       </div>
@@ -528,16 +575,16 @@ function renderWordSearchGame(session) {
     if (target) markFound(target, true);
   });
 
-  setScreen(screen);
+  setScreen(screen, { tracked: true });
 }
 
-function tallyRound(items) {
+function tallyRound(items, mode) {
   const tokenCounts = { easy: 0, medium: 0, difficult: 0 };
   let marksEarned = 0;
   for (const item of items) {
     if (item.earnedMark) {
       tokenCounts[item.entry.difficulty] += 1;
-      marksEarned += MARKS[item.entry.difficulty];
+      marksEarned += marksForFind(item.entry.difficulty, mode);
     }
   }
   return {
@@ -550,7 +597,7 @@ function tallyRound(items) {
 }
 
 function recordWordSearchProgress(session) {
-  const progress = { mode: 'wordsearch', ...tallyRound(session.placements) };
+  const progress = { mode: 'wordsearch', ...tallyRound(session.placements, 'wordsearch') };
   recordRoundProgressLocal(progress, state.playerName);
   if (state.playerId && syncsToBackend()) syncQuestProgress(state.playerId, progress);
 }
@@ -763,11 +810,293 @@ function renderSpellingGame(session) {
   }
 
   renderAll();
-  setScreen(screen);
+  setScreen(screen, { tracked: true });
 }
 
 function recordSpellingProgress(session) {
-  const progress = { mode: 'spelling', ...tallyRound(session.items) };
+  const progress = { mode: 'spelling', ...tallyRound(session.items, 'spelling') };
+  recordRoundProgressLocal(progress, state.playerName);
+  if (state.playerId && syncsToBackend()) syncQuestProgress(state.playerId, progress);
+}
+
+function shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ---------------------------------------------------------------------
+// True / False
+// ---------------------------------------------------------------------
+
+const TRUEFALSE_SCOPE = 'truefalse::general';
+const TRUEFALSE_ROUND_SIZE = 8;
+
+async function startTrueFalse() {
+  const content = await loadGameContent();
+  if (!content) { showContentLoadError(); return; }
+  renderTrueFalseSession(content.pool);
+}
+
+function renderTrueFalseSession(pool) {
+  const exposure = getWordExposureCounts(TRUEFALSE_SCOPE, state.playerName);
+  if (isPoolExhausted(pool, exposure)) {
+    showPoolExhausted({
+      backAction: showHome,
+      switchLabel: 'Try Word Search instead',
+      onSwitch: startWordSearch,
+    });
+    return;
+  }
+  renderTrueFalseGame(buildTrueFalseSession(pool));
+}
+
+function buildTrueFalseSession(pool) {
+  const roundsCompleted = getLocalTotals(state.playerName).roundsCompleted;
+  const weights = difficultyWeightsForExperience(roundsCompleted);
+  const exposure = getWordExposureCounts(TRUEFALSE_SCOPE, state.playerName);
+  const claims = sampleTrueFalseRound({
+    pool, weights, roundsCompleted, exposure, scopeKey: TRUEFALSE_SCOPE, count: TRUEFALSE_ROUND_SIZE,
+  });
+  setPersistedDrawQueues(exportDrawQueues(), state.playerName);
+  recordWordExposures(claims.map((c) => c.entry.word), TRUEFALSE_SCOPE, state.playerName);
+  return { pool, claims };
+}
+
+function renderTrueFalseGame(session) {
+  const screen = el(`
+    <div>
+      <h2 style="text-align:center;">True / False</h2>
+      <p class="tagline" style="text-align:center;">Read each claim and decide: true or false?</p>
+      <div data-cards></div>
+      <div class="game-toolbar" data-toolbar></div>
+    </div>
+  `);
+  screen.prepend(topBar({ backAction: showHome }));
+
+  const cardsEl = screen.querySelector('[data-cards]');
+  const toolbarEl = screen.querySelector('[data-toolbar]');
+  const answered = new Map(); // index -> 'self' | 'wrong' | 'shown'
+
+  session.claims.forEach((claim, idx) => {
+    const card = el(`
+      <div class="tf-card" data-card="${idx}">
+        <p class="tf-term">Term: <strong>${escapeHtml(claim.entry.word)}</strong> ${tokenBadge(claim.entry.difficulty)}</p>
+        <p class="tf-claim">${escapeHtml(claim.claimText)}</p>
+        <div class="btn-row">
+          <button type="button" class="btn btn-primary" data-answer="true">True</button>
+          <button type="button" class="btn btn-primary" data-answer="false">False</button>
+          <button type="button" class="btn btn-secondary" data-show>Show answer</button>
+          ${flagButtonHtml(0)}
+        </div>
+        <p class="tf-feedback" data-feedback></p>
+      </div>
+    `);
+    cardsEl.appendChild(card);
+
+    function lock() {
+      card.querySelectorAll('button:not(.flag-btn)').forEach((b) => { b.disabled = true; });
+    }
+
+    function settle(outcome, message) {
+      if (answered.has(idx)) return;
+      answered.set(idx, outcome);
+      lock();
+      card.querySelector('[data-feedback]').textContent = message;
+      card.classList.add(outcome === 'self' ? 'tf-correct' : outcome === 'wrong' ? 'tf-wrong' : 'tf-shown');
+      if (outcome === 'self') {
+        claim.found = true;
+        claim.earnedMark = true;
+        popMarkFeedback(cardsEl, card, claim.entry.difficulty);
+      } else if (outcome === 'shown') {
+        claim.found = true;
+        claim.earnedMark = false;
+      }
+      checkRoundComplete();
+    }
+
+    card.querySelector('[data-answer="true"]').addEventListener('click', () => {
+      const correct = claim.isTrue === true;
+      settle(correct ? 'self' : 'wrong', correct ? 'Correct - this claim is true.' : 'Not quite - this claim is actually false.');
+    });
+    card.querySelector('[data-answer="false"]').addEventListener('click', () => {
+      const correct = claim.isTrue === false;
+      settle(correct ? 'self' : 'wrong', correct ? 'Correct - this claim is false.' : 'Not quite - this claim is actually true.');
+    });
+    card.querySelector('[data-show]').addEventListener('click', () => {
+      settle('shown', `Shown - this claim is actually ${claim.isTrue ? 'true' : 'false'}. No marks earned.`);
+    });
+
+    wireFlagButtons(card, [claim.entry], 'truefalse');
+  });
+
+  function checkRoundComplete() {
+    if (answered.size < session.claims.length) return;
+    recordTrueFalseProgress(session);
+    toolbarEl.innerHTML = '';
+    const continueBtn = el(`<button type="button" class="btn btn-primary" data-round-continue>Continue</button>`);
+    continueBtn.addEventListener('click', () => showRoundComplete({ onContinue: () => renderTrueFalseSession(session.pool) }));
+    toolbarEl.appendChild(continueBtn);
+  }
+
+  setScreen(screen, { tracked: true });
+}
+
+function recordTrueFalseProgress(session) {
+  const progress = { mode: 'truefalse', ...tallyRound(session.claims, 'truefalse') };
+  recordRoundProgressLocal(progress, state.playerName);
+  if (state.playerId && syncsToBackend()) syncQuestProgress(state.playerId, progress);
+}
+
+// ---------------------------------------------------------------------
+// Card Grouping
+// ---------------------------------------------------------------------
+
+const GROUPING_SCOPE = 'grouping::general';
+
+// `source` is curator-only metadata everywhere else (never shown to
+// players), but Card Grouping's categories ARE that field, shown directly
+// as bucket titles - so a curator's compact tag doubles as a player-facing
+// label here. This content's convention is "topicN-slug" (e.g.
+// "topic3-neoclassical"); stripping that prefix and title-casing what's
+// left turns it into a presentable label without hardcoding this course's
+// specific topic names - any source that doesn't match the pattern just
+// gets title-cased as a whole, a reasonable fallback either way. Only
+// affects the DISPLAYED title; matching logic still uses the raw source.
+function prettifySource(source) {
+  return source
+    .replace(/^topic\d+-/, '')
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+async function startGrouping() {
+  const content = await loadGameContent();
+  if (!content) { showContentLoadError(); return; }
+  renderGroupingSession(content.pool);
+}
+
+function renderGroupingSession(pool) {
+  const exposure = getWordExposureCounts(GROUPING_SCOPE, state.playerName);
+  const categories = sampleGroupingRound({ pool, exposure });
+  if (!categories) {
+    showPoolExhausted({
+      backAction: showHome,
+      switchLabel: 'Try Word Search instead',
+      onSwitch: startWordSearch,
+    });
+    return;
+  }
+  const allWords = categories.flatMap((cat) => cat.cards.map((e) => e.word));
+  recordWordExposures(allWords, GROUPING_SCOPE, state.playerName);
+  renderGroupingGame({ pool, categories });
+}
+
+function renderGroupingGame(session) {
+  const { categories } = session;
+  const screen = el(`
+    <div>
+      <h2 style="text-align:center;">Card Grouping</h2>
+      <p class="tagline" style="text-align:center;">Tap a term, then tap the category it belongs to.</p>
+      <div class="grouping-buckets" data-buckets>
+        ${categories.map((cat) => `
+          <div class="bucket" data-bucket="${escapeHtml(cat.source)}">
+            <h4 class="bucket-title">${escapeHtml(prettifySource(cat.source))}</h4>
+            <div class="bucket-slot" data-slot="${escapeHtml(cat.source)}"></div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="card-tray" data-tray></div>
+      <div class="game-toolbar" data-toolbar>
+        <button type="button" class="btn btn-secondary" data-show-answer>Show answer</button>
+      </div>
+    </div>
+  `);
+  screen.prepend(topBar({ backAction: showHome }));
+
+  const bucketsEl = screen.querySelector('[data-buckets]');
+  const trayEl = screen.querySelector('[data-tray]');
+  const toolbarEl = screen.querySelector('[data-toolbar]');
+
+  const cardMeta = new Map(); // word -> { entry, correctSource, earnedMark }
+  for (const cat of categories) {
+    for (const entry of cat.cards) {
+      cardMeta.set(entry.word, { entry, correctSource: cat.source, earnedMark: false });
+    }
+  }
+
+  shuffleArray([...cardMeta.keys()]).forEach((word) => {
+    const btn = el(`<button type="button" class="card" data-word="${escapeHtml(word)}">${escapeHtml(word)}</button>`);
+    trayEl.appendChild(btn);
+  });
+
+  let selectedWord = null;
+  const placed = new Set();
+
+  function setSelected(word) {
+    selectedWord = word;
+    trayEl.querySelectorAll('.card').forEach((btn) => btn.classList.toggle('selected', btn.dataset.word === word));
+  }
+
+  trayEl.querySelectorAll('.card').forEach((btn) => {
+    btn.addEventListener('click', () => setSelected(btn.dataset.word === selectedWord ? null : btn.dataset.word));
+  });
+
+  bucketsEl.querySelectorAll('.bucket').forEach((bucketEl) => {
+    bucketEl.addEventListener('click', () => attemptPlacement(bucketEl.dataset.bucket));
+  });
+
+  function placeCard(word, { viaHint }) {
+    const meta = cardMeta.get(word);
+    const cardBtn = trayEl.querySelector(`[data-word="${word}"]`);
+    const slotEl = bucketsEl.querySelector(`[data-slot="${meta.correctSource}"]`);
+    placed.add(word);
+    cardBtn?.remove();
+    const chip = el(`<div class="placed-chip${viaHint ? ' placed-chip--shown' : ''}">${escapeHtml(word)}</div>`);
+    slotEl.appendChild(chip);
+    meta.earnedMark = !viaHint;
+    if (!viaHint) popMarkFeedback(bucketsEl, slotEl, meta.entry.difficulty);
+    if (selectedWord === word) selectedWord = null;
+    checkRoundComplete();
+  }
+
+  function attemptPlacement(bucketSource) {
+    if (!selectedWord) return;
+    const meta = cardMeta.get(selectedWord);
+    if (meta.correctSource === bucketSource) {
+      placeCard(selectedWord, { viaHint: false });
+    } else {
+      const bucketEl = bucketsEl.querySelector(`[data-bucket="${bucketSource}"]`);
+      bucketEl.classList.add('bucket-wrong');
+      setTimeout(() => bucketEl.classList.remove('bucket-wrong'), 400);
+    }
+  }
+
+  toolbarEl.querySelector('[data-show-answer]').addEventListener('click', () => {
+    const remaining = [...cardMeta.keys()].find((w) => !placed.has(w));
+    if (remaining) placeCard(remaining, { viaHint: true });
+  });
+
+  function checkRoundComplete() {
+    if (placed.size < cardMeta.size) return;
+    recordGroupingProgress(cardMeta);
+    toolbarEl.innerHTML = '';
+    const continueBtn = el(`<button type="button" class="btn btn-primary" data-round-continue>Continue</button>`);
+    continueBtn.addEventListener('click', () => showRoundComplete({ onContinue: () => renderGroupingSession(session.pool) }));
+    toolbarEl.appendChild(continueBtn);
+  }
+
+  setScreen(screen, { tracked: true });
+}
+
+function recordGroupingProgress(cardMeta) {
+  const items = [...cardMeta.values()].map((meta) => ({ entry: meta.entry, earnedMark: meta.earnedMark }));
+  const progress = { mode: 'grouping', ...tallyRound(items, 'grouping') };
   recordRoundProgressLocal(progress, state.playerName);
   if (state.playerId && syncsToBackend()) syncQuestProgress(state.playerId, progress);
 }
@@ -881,13 +1210,26 @@ function showWordSearchTooThin() {
 // Scoreboard
 // ---------------------------------------------------------------------
 
+// Renders a whole number of seconds as a compact "1h 24m" / "12m 05s" /
+// "43s" string - matches marks/tokens in being a plain read at a glance,
+// not a precise stopwatch reading.
+function formatDuration(totalSeconds) {
+  const s = Math.max(0, Math.round(totalSeconds || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+
 async function showScoreboard() {
   const screen = el(`
     <div>
       <h2 style="text-align:center;">Scoreboard</h2>
       <p class="tagline" style="text-align:center;">The whole class's progress, updated live.</p>
       <div class="score-section">
-        <p class="token-legend">${tokenBadge('easy')} = 1 mark &nbsp; ${tokenBadge('medium')} = 3 marks &nbsp; ${tokenBadge('difficult')} = 6 marks. "Show answer" earns neither a token nor marks.</p>
+        <p class="token-legend">${tokenBadge('easy')} = 1 mark &nbsp; ${tokenBadge('medium')} = 3 marks &nbsp; ${tokenBadge('difficult')} = 6 marks. Word Search and Card Grouping earn double these marks per find; Spelling and True/False earn the base value. "Show answer" earns neither a token nor marks. Click a column heading to sort by it.</p>
         <div data-quest-board>Loading…</div>
       </div>
       ${syncsToBackend() ? `
@@ -909,51 +1251,104 @@ async function showScoreboard() {
     const activeRows = (rows || []).filter((row) => (row.total_marks ?? 0) > 0 || (row.rounds_completed ?? 0) > 0);
     questBoardEl.replaceWith(renderLeaderboardTable(
       activeRows,
-      ['display_name', 'total_bronze', 'total_silver', 'total_gold', 'total_marks', 'rounds_completed'],
-      ['Name', `${tokenBadge('easy')} Bronze`, `${tokenBadge('medium')} Silver`, `${tokenBadge('difficult')} Gold`, 'Marks', 'Rounds'],
-      'data-quest-board'
+      [
+        { key: 'display_name', label: 'Name', numeric: false },
+        { key: 'total_bronze', label: `${tokenBadge('easy')} Bronze` },
+        { key: 'total_silver', label: `${tokenBadge('medium')} Silver` },
+        { key: 'total_gold', label: `${tokenBadge('difficult')} Gold` },
+        { key: 'wordsearch_marks', label: 'Word Search' },
+        { key: 'spelling_marks', label: 'Spelling' },
+        { key: 'truefalse_marks', label: 'True/False' },
+        { key: 'grouping_marks', label: 'Grouping' },
+        { key: 'total_marks', label: 'Marks' },
+        { key: 'rounds_completed', label: 'Rounds' },
+        { key: 'total_time_seconds', label: 'Time', format: formatDuration },
+      ],
+      'data-quest-board',
+      { defaultSortKey: 'total_marks' }
     ));
     if (flaggedBoardEl) {
       const flaggedFormatted = (flaggedRows || []).map((row) => ({
         ...row,
-        source_label: row.source_mode === 'wordsearch' ? 'Word Search' : 'Spelling',
+        source_label: MODE_LABELS[row.source_mode] || row.source_mode,
         flagged_at: new Date(row.created_at).toLocaleString(),
       }));
       flaggedBoardEl.replaceWith(renderLeaderboardTable(
         flaggedFormatted,
-        ['word', 'meaning', 'source_label', 'flagged_by', 'flagged_at'],
-        ['Term', 'Meaning', 'Mode', 'Flagged by', 'When'],
+        [
+          { key: 'word', label: 'Term', numeric: false },
+          { key: 'meaning', label: 'Meaning', numeric: false },
+          { key: 'source_label', label: 'Mode', numeric: false },
+          { key: 'flagged_by', label: 'Flagged by', numeric: false },
+          { key: 'flagged_at', label: 'When', numeric: false },
+        ],
         'data-flagged-board',
-        10,
-        'No flagged terms - nice.'
+        { limit: 10, emptyMessage: 'No flagged terms - nice.', defaultSortKey: 'flagged_at' }
       ));
     }
   }
 }
 
-function renderLeaderboardTable(rows, keys, labels, dataAttr, limit = 10, emptyMessage = 'No scores yet - be the first!') {
+// `columns`: [{ key, label, numeric = true, sortable = true, format }].
+// Sorting is entirely client-side over whatever page of rows was already
+// fetched - fine at classroom scale, and keeps the Supabase side to one
+// simple view rather than needing a sortable query API.
+function renderLeaderboardTable(rows, columns, dataAttr, { limit = 10, emptyMessage = 'No scores yet - be the first!', defaultSortKey = null, defaultSortDir = 'desc' } = {}) {
   if (!rows || !rows.length) {
     return el(`<div ${dataAttr}><p class="score-note">${emptyMessage}</p></div>`);
   }
   let expanded = false;
+  let sortKey = defaultSortKey || columns[0].key;
+  let sortDir = defaultSortDir;
   const wrap = el(`<div ${dataAttr}></div>`);
-  const header = labels.map((l) => `<th>${l}</th>`).join('');
+
+  function sortedRows() {
+    const col = columns.find((c) => c.key === sortKey);
+    const numeric = col?.numeric !== false;
+    const sorted = rows.slice().sort((a, b) => {
+      const av = a[sortKey] ?? (numeric ? 0 : '');
+      const bv = b[sortKey] ?? (numeric ? 0 : '');
+      return numeric ? (av - bv) : String(av).localeCompare(String(bv));
+    });
+    if (sortDir === 'desc') sorted.reverse();
+    return sorted;
+  }
+
   const renderInner = () => {
-    const visibleRows = expanded ? rows : rows.slice(0, limit);
+    const visibleRows = sortedRows().slice(0, expanded ? rows.length : limit);
+    const header = columns.map((c) => {
+      if (c.sortable === false) return `<th>${c.label}</th>`;
+      const isSorted = c.key === sortKey;
+      const arrow = isSorted ? (sortDir === 'desc' ? ' ▼' : ' ▲') : '';
+      return `<th class="sortable${isSorted ? ' sorted' : ''}" data-sort-key="${c.key}">${c.label}${arrow}</th>`;
+    }).join('');
     // Rows come straight from the shared Supabase leaderboard views - any
     // player's own chosen display_name ends up here, so it must be escaped
     // like any other untrusted input before going into innerHTML.
-    const body = visibleRows.map((row) => `<tr>${keys.map((k) => `<td>${escapeHtml(row[k] ?? 0)}</td>`).join('')}</tr>`).join('');
+    const body = visibleRows.map((row) => `<tr>${columns.map((c) => {
+      const raw = row[c.key] ?? (c.numeric === false ? '' : 0);
+      return `<td>${escapeHtml(c.format ? c.format(raw) : raw)}</td>`;
+    }).join('')}</tr>`).join('');
     const toggle = rows.length > limit
       ? `<p class="score-toggle"><button type="button" class="btn-link" data-toggle>${expanded ? 'Show less' : 'Show more'}</button></p>`
       : '';
     wrap.innerHTML = `
-      <table class="score-table">
-        <thead><tr>${header}</tr></thead>
-        <tbody>${body}</tbody>
-      </table>
+      <div class="table-scroll">
+        <table class="score-table">
+          <thead><tr>${header}</tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>
       ${toggle}
     `;
+    wrap.querySelectorAll('[data-sort-key]').forEach((th) => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.sortKey;
+        if (sortKey === key) sortDir = sortDir === 'desc' ? 'asc' : 'desc';
+        else { sortKey = key; sortDir = 'desc'; }
+        renderInner();
+      });
+    });
     const toggleBtn = wrap.querySelector('[data-toggle]');
     if (toggleBtn) toggleBtn.addEventListener('click', () => { expanded = !expanded; renderInner(); });
   };
@@ -962,5 +1357,10 @@ function renderLeaderboardTable(rows, keys, labels, dataAttr, limit = 10, emptyM
 }
 
 // ---------------------------------------------------------------------
+
+// Best-effort: a closed tab can't guarantee an async Supabase write
+// completes, but the local tally (a synchronous localStorage write) is
+// always safe, and the sync attempt costs nothing to try.
+window.addEventListener('beforeunload', flushPlayTimer);
 
 boot();

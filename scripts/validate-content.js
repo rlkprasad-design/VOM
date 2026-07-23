@@ -64,7 +64,7 @@ function validateQuestions(data) {
       }
       const key = `${entry.word}::${entry.difficulty}`;
       wordLocations.set(key, (wordLocations.get(key) || 0) + 1);
-      entries.push({ word: entry.word, len, difficulty: entry.difficulty });
+      entries.push({ word: entry.word, len, difficulty: entry.difficulty, source: entry.source });
     }
 
     if (!isNonEmptyString(entry.meaning)) {
@@ -238,6 +238,24 @@ function main() {
     if (spellingWarnings.length) {
       console.log(`\n⚠ pool size vs spelling mode's tier mix`);
       spellingWarnings.forEach((w) => { console.log(`  ⚠ ${w}`); totalWarnings += 1; });
+    }
+
+    // Card Grouping mode draws its categories straight from `source`
+    // (js/grouping.js) and needs at least 2 categories with 2+ members
+    // each to build a round at all - fewer than that and every round
+    // shows the "you've seen everything" screen regardless of how big the
+    // rest of the pool is.
+    const bySource = new Map();
+    for (const e of poolEntries) {
+      if (!e.source) continue;
+      if (!bySource.has(e.source)) bySource.set(e.source, 0);
+      bySource.set(e.source, bySource.get(e.source) + 1);
+    }
+    const eligibleCategories = [...bySource.values()].filter((count) => count >= 2).length;
+    if (eligibleCategories < 2) {
+      console.log(`\n⚠ pool size vs Card Grouping's category mix`);
+      console.log(`  ⚠ only ${eligibleCategories} "source" categories have 2+ entries - Card Grouping needs at least 2 to build a round`);
+      totalWarnings += 1;
     }
   }
 
