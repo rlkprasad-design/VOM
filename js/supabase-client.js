@@ -88,6 +88,18 @@ export async function syncQuestProgress(playerId, entry) {
   if (error) console.warn('syncQuestProgress failed:', error);
 }
 
+// Logs a chunk of active play time as its own append-only row (matching
+// quest_progress's pattern), rather than trying to increment a running
+// total server-side - a plain insert can't race with itself the way a
+// read-modify-write upsert could if a player had two tabs open. The
+// leaderboard view sums these the same way it sums quest_progress's marks.
+export async function syncTimeSpent(playerId, seconds) {
+  const sb = await getClient();
+  if (!sb || !playerId) return;
+  const { error } = await sb.from('time_log').insert({ player_id: playerId, seconds });
+  if (error) console.warn('syncTimeSpent failed:', error);
+}
+
 export async function fetchQuestLeaderboard() {
   const sb = await getClient();
   if (!sb) return null;
