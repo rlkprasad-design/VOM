@@ -80,7 +80,12 @@ a sortable "Time" column.
     manager a gift to speed up an order. What value should guide their
     response?") - shown as True/False's claim text (falling back to
     `meaning` when absent), so "recognize this value in context" recall is
-    already covered, not just plain definitions.
+    already covered, not just plain definitions. The trailing question is
+    exactly what Word Search/Spelling need (the player supplies the
+    missing term), but True/False strips it via `situationOnly()` in
+    `js/app.js` and states an explicit "Claim: this is an example of X"
+    instead - a raw "[situation]. What value is this?" left nothing
+    actually assertable as true or false next to a bare term label.
   - `scenarios` (optional, instead of `scenario`): a non-empty array of
     alternate situational clues for one term, picked at random each time
     it's drawn - so a term with a deep exposure cap still presents varied

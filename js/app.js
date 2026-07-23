@@ -835,6 +835,27 @@ function shuffleArray(arr) {
 const TRUEFALSE_SCOPE = 'truefalse::general';
 const TRUEFALSE_ROUND_SIZE = 8;
 
+// Every scenario is authored as "[situation]. [What/Which ... is this?]" (or
+// sometimes just one sentence ending in a bare question, e.g. "...are
+// collectively known as an organization's what?") for Word Search/Spelling,
+// where the player supplies the missing term. That trailing question left
+// True/False with a dangling question next to a bare "Term: X" label,
+// nothing actually assertable as true or false. This strips the scenario's
+// final question sentence via a real sentence splitter (not a naive regex
+// on the first period, which breaks on abbreviations and on scenarios with
+// an internal rhetorical question before the real trailing one), so the
+// card can instead state an explicit claim for the player to judge.
+function situationOnly(text) {
+  const sentences = text.match(/[^.!?]+[.!?]+['"’”]?/g);
+  if (!sentences || sentences.length < 2) return text;
+  const last = sentences[sentences.length - 1].trim();
+  if (!last.endsWith('?')) return text; // last sentence isn't a question - nothing to strip
+  // Join with '' (not ' ') - each matched sentence already carries its own
+  // leading space from the original text, so adding another would double
+  // it up (e.g. "Mr." + " Singh's..." -> "Mr.  Singh's" with two spaces).
+  return sentences.slice(0, -1).join('').trim();
+}
+
 async function startTrueFalse() {
   const content = await loadGameContent();
   if (!content) { showContentLoadError(); return; }
@@ -884,8 +905,8 @@ function renderTrueFalseGame(session) {
   session.claims.forEach((claim, idx) => {
     const card = el(`
       <div class="tf-card" data-card="${idx}">
-        <p class="tf-term">Term: <strong>${escapeHtml(claim.entry.word)}</strong> ${tokenBadge(claim.entry.difficulty)}</p>
-        <p class="tf-claim">${escapeHtml(claim.claimText)}</p>
+        <p class="tf-claim">${escapeHtml(situationOnly(claim.claimText))}</p>
+        <p class="tf-term">Claim: this is an example of <strong>${escapeHtml(claim.entry.word)}</strong> ${tokenBadge(claim.entry.difficulty)}</p>
         <div class="btn-row">
           <button type="button" class="btn btn-primary" data-answer="true">True</button>
           <button type="button" class="btn btn-primary" data-answer="false">False</button>
