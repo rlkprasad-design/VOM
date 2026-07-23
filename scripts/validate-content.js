@@ -77,6 +77,19 @@ function validateQuestions(data) {
       errors.push(`${where}: scenario must be a non-empty string when present`);
     }
 
+    if ('scenarios' in entry && entry.scenarios !== null) {
+      if (!Array.isArray(entry.scenarios) || entry.scenarios.length === 0) {
+        errors.push(`${where}: scenarios must be a non-empty array when present`);
+      } else {
+        entry.scenarios.forEach((s, si) => {
+          if (!isNonEmptyString(s)) errors.push(`${where}.scenarios[${si}]: must be a non-empty string`);
+        });
+        if (entry.scenarios.length === 1) {
+          warnings.push(`${where}: scenarios has only 1 entry - a single-element array behaves like plain "scenario" but is more to maintain; consider using "scenario" instead, or adding a second variant`);
+        }
+      }
+    }
+
     if (!DIFFICULTIES.includes(entry.difficulty)) {
       errors.push(`${where}: difficulty must be one of ${DIFFICULTIES.join('/')}, got ${JSON.stringify(entry.difficulty)}`);
     }
