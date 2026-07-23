@@ -12,7 +12,18 @@ function randomInt(min, max) {
   return min + Math.floor(Math.random() * (max - min + 1));
 }
 
+// An entry can carry `scenarios` (a non-empty array of alternate
+// situational clues) instead of a single `scenario` string, when one term
+// has several distinct real-world examples worth asking about rather than
+// just one - picked at random each time the entry is drawn, so a term
+// with a deep exposure cap still presents varied questions across its
+// exposures instead of the exact same claim every time. Falls back to the
+// singular `scenario`, then plain `meaning`, for entries that don't need
+// the extra variety.
 function claimTextFor(entry) {
+  if (Array.isArray(entry.scenarios) && entry.scenarios.length > 0) {
+    return entry.scenarios[randomInt(0, entry.scenarios.length - 1)];
+  }
   return entry.scenario || entry.meaning;
 }
 

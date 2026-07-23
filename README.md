@@ -70,8 +70,8 @@ a sortable "Time" column.
 
 ## Editing content
 
-- `data/questions.json`: the single content pool. Each entry is
-  `{ word, meaning, scenario, difficulty, source }`.
+- `data/questions.json`: the single content pool (103 terms as of this
+  writing). Each entry is `{ word, meaning, scenario, difficulty, source }`.
   - `word`: a single unbroken token (no spaces), uppercase, ≤ the largest
     grid size any level can roll (currently 14 characters).
   - `meaning`: a short definition/hint shown in Word Search's clue panel
@@ -81,6 +81,13 @@ a sortable "Time" column.
     response?") - shown as True/False's claim text (falling back to
     `meaning` when absent), so "recognize this value in context" recall is
     already covered, not just plain definitions.
+  - `scenarios` (optional, instead of `scenario`): a non-empty array of
+    alternate situational clues for one term, picked at random each time
+    it's drawn - so a term with a deep exposure cap still presents varied
+    questions across its exposures rather than the exact same claim every
+    time. A good place for a couple of different real-world framings of
+    the same concept (a classic example alongside a more contemporary
+    one), not required for every entry.
   - `difficulty`: `"easy" | "medium" | "difficult"` - exactly three tiers,
     mixed together in every round.
   - `source`: a category tag - curator-only metadata for Word Search/
