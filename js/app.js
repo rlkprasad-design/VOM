@@ -309,7 +309,7 @@ function showNameGate() {
 const MODES = [
   { id: 'wordsearch', title: 'Word Search', sub: 'Drag through the grid to find each hidden term.', start: () => startWordSearch() },
   { id: 'spelling', title: 'Spelling Challenge', sub: 'Unscramble the jumbled letters to spell each term.', start: () => startSpelling() },
-  { id: 'truefalse', title: 'True / False', sub: 'Judge whether each claim about a term is true or false.', start: () => startTrueFalse() },
+  { id: 'truefalse', title: 'True / False', sub: 'Judge whether each statement is true or false.', start: () => startTrueFalse() },
   { id: 'grouping', title: 'Card Grouping', sub: 'Sort terms into the category each one belongs to.', start: () => startGrouping() },
 ];
 
@@ -870,7 +870,7 @@ function renderTrueFalseGame(session) {
   const screen = el(`
     <div>
       <h2 style="text-align:center;">True / False</h2>
-      <p class="tagline" style="text-align:center;">Read each claim and decide: true or false?</p>
+      <p class="tagline" style="text-align:center;">Read each statement and decide: true or false?</p>
       <div data-cards></div>
       <div class="game-toolbar" data-toolbar></div>
     </div>
@@ -884,7 +884,7 @@ function renderTrueFalseGame(session) {
   session.claims.forEach((claim, idx) => {
     const card = el(`
       <div class="tf-card" data-card="${idx}">
-        <p class="tf-term">Term: <strong>${escapeHtml(claim.entry.word)}</strong> ${tokenBadge(claim.entry.difficulty)}</p>
+        <p class="tf-badge">${tokenBadge(claim.entry.difficulty)}</p>
         <p class="tf-claim">${escapeHtml(claim.claimText)}</p>
         <div class="btn-row">
           <button type="button" class="btn btn-primary" data-answer="true">True</button>
@@ -920,14 +920,14 @@ function renderTrueFalseGame(session) {
 
     card.querySelector('[data-answer="true"]').addEventListener('click', () => {
       const correct = claim.isTrue === true;
-      settle(correct ? 'self' : 'wrong', correct ? 'Correct - this claim is true.' : 'Not quite - this claim is actually false.');
+      settle(correct ? 'self' : 'wrong', correct ? 'Correct - this statement is true.' : 'Not quite - this statement is actually false.');
     });
     card.querySelector('[data-answer="false"]').addEventListener('click', () => {
       const correct = claim.isTrue === false;
-      settle(correct ? 'self' : 'wrong', correct ? 'Correct - this claim is false.' : 'Not quite - this claim is actually true.');
+      settle(correct ? 'self' : 'wrong', correct ? 'Correct - this statement is false.' : 'Not quite - this statement is actually true.');
     });
     card.querySelector('[data-show]').addEventListener('click', () => {
-      settle('shown', `Shown - this claim is actually ${claim.isTrue ? 'true' : 'false'}. No marks earned.`);
+      settle('shown', `Shown - this statement is actually ${claim.isTrue ? 'true' : 'false'}. No marks earned.`);
     });
 
     wireFlagButtons(card, [claim.entry], 'truefalse');

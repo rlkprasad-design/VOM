@@ -14,9 +14,10 @@ without it, the game still runs fully offline with a local-only tally.
   term, in any of 8 directions.
 - **Spelling Challenge**: tap scrambled letter tiles back into the right
   order to spell each term.
-- **True/False**: judge whether a claim about a term (its own meaning/
-  scenario, or a different term's borrowed for a false claim) is true or
-  false.
+- **True/False**: judge whether a statement is true or false - a term's
+  own situational lead-in (`scenario`/`scenarios`) paired with either its
+  own `label` or a different term's (borrowed for a false statement,
+  preferring one from the same difficulty tier).
 - **Card Grouping**: sort term cards into the category bucket each one
   belongs to, using each entry's existing `source` tag.
 
@@ -71,23 +72,36 @@ a sortable "Time" column.
 ## Editing content
 
 - `data/questions.json`: the single content pool (103 terms as of this
-  writing). Each entry is `{ word, meaning, scenario, difficulty, source }`.
+  writing). Each entry is
+  `{ word, meaning, scenario, label, difficulty, source }`.
   - `word`: a single unbroken token (no spaces), uppercase, ≤ the largest
     grid size any level can roll (currently 14 characters).
   - `meaning`: a short definition/hint shown in Word Search's clue panel
     and above Spelling Challenge's tiles. Soft limit ~120 characters.
-  - `scenario`: a short situational description (e.g. "A vendor offers a
-    manager a gift to speed up an order. What value should guide their
-    response?") - shown as True/False's claim text (falling back to
-    `meaning` when absent), so "recognize this value in context" recall is
-    already covered, not just plain definitions.
+  - `scenario`: a situational lead-in, **not phrased as a question** (e.g.
+    "A vendor offers a manager a gift to speed up an order." - not "...
+    What value should guide their response?"). True/False glues this
+    directly onto `label` to build the actual claim - see `label` below -
+    so it must read as a plain description, never naming its own answer.
+    Falls back to `meaning` when absent.
   - `scenarios` (optional, instead of `scenario`): a non-empty array of
-    alternate situational clues for one term, picked at random each time
-    it's drawn - so a term with a deep exposure cap still presents varied
-    questions across its exposures rather than the exact same claim every
-    time. A good place for a couple of different real-world framings of
-    the same concept (a classic example alongside a more contemporary
-    one), not required for every entry.
+    alternate situational lead-ins for one term, picked at random each
+    time it's drawn - so a term with a deep exposure cap still presents
+    varied statements across its exposures rather than the exact same one
+    every time. A good place for a couple of different real-world framings
+    of the same concept (a classic example alongside a more contemporary
+    one), not required for every entry. Same "no question" rule as
+    `scenario`.
+  - `label`: a natural-language name for the term (e.g. `"First-Line
+    Management"` for the word `FIRSTLINE`, `"Taylor's Scientific
+    Management approach"` for `TAYLOR`) - required on every entry, since
+    True/False can draw any of them. `js/truefalse.js` builds each round's
+    claim as `"<scenario> This describes <label>."`; a true claim uses the
+    term's own label, a false claim swaps in a different (same-tier where
+    possible) entry's label instead, so the lead-in never changes but the
+    asserted answer sometimes does. Write it so it reads naturally after
+    "This describes " - the validator checks it's present and non-empty,
+    but not that it reads well, so proofread new entries in-game.
   - `difficulty`: `"easy" | "medium" | "difficult"` - exactly three tiers,
     mixed together in every round.
   - `source`: a category tag - curator-only metadata for Word Search/

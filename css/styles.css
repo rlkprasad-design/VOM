@@ -398,8 +398,7 @@ h1, h2, h3, .display {
   margin: 0 auto 16px;
   max-width: 640px;
 }
-.tf-term { color: var(--indigo-light); font-size: 0.85rem; margin: 0 0 6px; }
-.tf-term .token-icon { margin-left: 6px; }
+.tf-badge { margin: 0 0 8px; }
 .tf-claim { color: var(--paper); font-size: 1.05rem; margin: 0 0 14px; }
 .tf-card .btn-row { justify-content: flex-start; }
 .tf-feedback { margin: 10px 0 0; font-size: 0.92rem; color: var(--gold-light); min-height: 1.3em; }

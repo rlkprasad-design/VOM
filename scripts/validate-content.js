@@ -90,6 +90,26 @@ function validateQuestions(data) {
       }
     }
 
+    // A scenario/scenarios lead-in must be a plain situational description,
+    // not a question - js/truefalse.js glues it directly onto "This
+    // describes <label>." to form the actual True/False claim, so a
+    // trailing question mark here means the resulting sentence reads as
+    // "<situation>? This describes <label>." - a leftover of the old
+    // question-style format this schema replaced.
+    const leadinTexts = entry.scenario ? [entry.scenario] : (Array.isArray(entry.scenarios) ? entry.scenarios : []);
+    leadinTexts.forEach((text, ti) => {
+      if (typeof text === 'string' && text.trim().endsWith('?')) {
+        const suffix = entry.scenario ? '' : `[${ti}]`;
+        errors.push(`${where}.scenario${suffix}: ends with "?" - True/False needs a plain situational lead-in (no question), since it's appended to "This describes <label>." to form the claim`);
+      }
+    });
+
+    if ('label' in entry && entry.label !== null && !isNonEmptyString(entry.label)) {
+      errors.push(`${where}: label must be a non-empty string when present`);
+    } else if (!isNonEmptyString(entry.label)) {
+      errors.push(`${where}: label is missing - True/False needs it to build "<lead-in> This describes <label>." for every entry it draws (see README.md)`);
+    }
+
     if (!DIFFICULTIES.includes(entry.difficulty)) {
       errors.push(`${where}: difficulty must be one of ${DIFFICULTIES.join('/')}, got ${JSON.stringify(entry.difficulty)}`);
     }
