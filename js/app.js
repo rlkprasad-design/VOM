@@ -1222,9 +1222,9 @@ async function showScoreboard() {
       activeRows,
       [
         { key: 'display_name', label: 'Name', numeric: false },
-        { key: 'total_bronze', label: `${tokenBadge('easy')} Bronze` },
-        { key: 'total_silver', label: `${tokenBadge('medium')} Silver` },
-        { key: 'total_gold', label: `${tokenBadge('difficult')} Gold` },
+        { key: 'total_bronze', label: `${tokenBadge('easy')} Bronze`, group: 'tokens', tokenDifficulty: 'easy' },
+        { key: 'total_silver', label: `${tokenBadge('medium')} Silver`, group: 'tokens', tokenDifficulty: 'medium' },
+        { key: 'total_gold', label: `${tokenBadge('difficult')} Gold`, group: 'tokens', tokenDifficulty: 'difficult' },
         { key: 'wordsearch_marks', label: 'Word Search' },
         { key: 'spelling_marks', label: 'Spelling' },
         { key: 'truefalse_marks', label: 'True/False' },
@@ -1257,25 +1257,48 @@ async function showScoreboard() {
   }
 }
 
-// `columns`: [{ key, label, numeric = true, sortable = true, format }].
+// `columns`: [{ key, label, numeric = true, sortable = true, format, group, tokenDifficulty }].
 // Sorting is entirely client-side over whatever page of rows was already
 // fetched - fine at classroom scale, and keeps the Supabase side to one
 // simple view rather than needing a sortable query API.
+//
+// Columns sharing the same `group` tag (currently just the Bronze/Silver/
+// Gold token columns) collapse into a single compact column by default -
+// three wide numeric columns become one "🥉n 🥈n 🥇n" cell - specifically
+// so the table fits a laptop viewport without needing table-scroll's
+// horizontal scrollbar in the common case. A single toggle above the
+// table expands them back into their own sortable columns for anyone who
+// wants to sort by just one tier.
 function renderLeaderboardTable(rows, columns, dataAttr, { limit = 10, emptyMessage = 'No scores yet - be the first!', defaultSortKey = null, defaultSortDir = 'desc' } = {}) {
   if (!rows || !rows.length) {
     return el(`<div ${dataAttr}><p class="score-note">${emptyMessage}</p></div>`);
   }
   let expanded = false;
+  let groupExpanded = false;
+  const groupColumns = columns.filter((c) => c.group);
   let sortKey = defaultSortKey || columns[0].key;
   let sortDir = defaultSortDir;
   const wrap = el(`<div ${dataAttr}></div>`);
 
+  function visibleColumns() {
+    if (!groupColumns.length || groupExpanded) return columns;
+    const firstIdx = columns.findIndex((c) => c.group);
+    const collapsedCol = { key: '__tokens__', label: 'Tokens', numeric: false, sortable: false, isTokenGroup: true };
+    const rest = columns.filter((c) => !c.group);
+    rest.splice(firstIdx, 0, collapsedCol);
+    return rest;
+  }
+
   function sortedRows() {
-    const col = columns.find((c) => c.key === sortKey);
+    // A collapsed group column was never sortable, but if it was sorted by
+    // one of its now-hidden members before collapsing, fall back to the
+    // table's natural default rather than erroring on a missing column.
+    const activeKey = visibleColumns().some((c) => c.key === sortKey) ? sortKey : (defaultSortKey || columns[0].key);
+    const col = columns.find((c) => c.key === activeKey);
     const numeric = col?.numeric !== false;
     const sorted = rows.slice().sort((a, b) => {
-      const av = a[sortKey] ?? (numeric ? 0 : '');
-      const bv = b[sortKey] ?? (numeric ? 0 : '');
+      const av = a[activeKey] ?? (numeric ? 0 : '');
+      const bv = b[activeKey] ?? (numeric ? 0 : '');
       return numeric ? (av - bv) : String(av).localeCompare(String(bv));
     });
     if (sortDir === 'desc') sorted.reverse();
@@ -1283,8 +1306,9 @@ function renderLeaderboardTable(rows, columns, dataAttr, { limit = 10, emptyMess
   }
 
   const renderInner = () => {
+    const cols = visibleColumns();
     const visibleRows = sortedRows().slice(0, expanded ? rows.length : limit);
-    const header = columns.map((c) => {
+    const header = cols.map((c) => {
       if (c.sortable === false) return `<th>${c.label}</th>`;
       const isSorted = c.key === sortKey;
       const arrow = isSorted ? (sortDir === 'desc' ? ' ▼' : ' ▲') : '';
@@ -1292,13 +1316,26 @@ function renderLeaderboardTable(rows, columns, dataAttr, { limit = 10, emptyMess
     }).join('');
     // Rows come straight from the shared Supabase leaderboard views - any
     // player's own chosen display_name ends up here, so it must be escaped
-    // like any other untrusted input before going into innerHTML.
-    const body = visibleRows.map((row) => `<tr>${columns.map((c) => {
+    // like any other untrusted input before going into innerHTML. The
+    // token-group cell only interpolates integer counts (never player-
+    // supplied text) alongside trusted badge markup, so it's safe to build
+    // directly rather than through the escapeHtml(format(...)) path below.
+    const body = visibleRows.map((row) => `<tr>${cols.map((c) => {
+      if (c.isTokenGroup) {
+        const cell = groupColumns.map((gc) => `${tokenBadge(gc.tokenDifficulty)}${escapeHtml(String(row[gc.key] ?? 0))}`).join(' ');
+        return `<td class="token-group-cell">${cell}</td>`;
+      }
       const raw = row[c.key] ?? (c.numeric === false ? '' : 0);
       return `<td>${escapeHtml(c.format ? c.format(raw) : raw)}</td>`;
     }).join('')}</tr>`).join('');
-    const toggle = rows.length > limit
-      ? `<p class="score-toggle"><button type="button" class="btn-link" data-toggle>${expanded ? 'Show less' : 'Show more'}</button></p>`
+    const rowToggle = rows.length > limit
+      ? `<button type="button" class="btn-link" data-toggle>${expanded ? 'Show less' : 'Show more'}</button>`
+      : '';
+    const groupToggle = groupColumns.length
+      ? `<button type="button" class="btn-link" data-toggle-tokens>${groupExpanded ? 'Combine Bronze/Silver/Gold into one column' : 'Show Bronze/Silver/Gold as separate columns'}</button>`
+      : '';
+    const toggleRow = (rowToggle || groupToggle)
+      ? `<p class="score-toggle">${rowToggle}${rowToggle && groupToggle ? ' · ' : ''}${groupToggle}</p>`
       : '';
     wrap.innerHTML = `
       <div class="table-scroll">
@@ -1307,7 +1344,7 @@ function renderLeaderboardTable(rows, columns, dataAttr, { limit = 10, emptyMess
           <tbody>${body}</tbody>
         </table>
       </div>
-      ${toggle}
+      ${toggleRow}
     `;
     wrap.querySelectorAll('[data-sort-key]').forEach((th) => {
       th.addEventListener('click', () => {
@@ -1319,6 +1356,8 @@ function renderLeaderboardTable(rows, columns, dataAttr, { limit = 10, emptyMess
     });
     const toggleBtn = wrap.querySelector('[data-toggle]');
     if (toggleBtn) toggleBtn.addEventListener('click', () => { expanded = !expanded; renderInner(); });
+    const groupToggleBtn = wrap.querySelector('[data-toggle-tokens]');
+    if (groupToggleBtn) groupToggleBtn.addEventListener('click', () => { groupExpanded = !groupExpanded; renderInner(); });
   };
   renderInner();
   return wrap;
