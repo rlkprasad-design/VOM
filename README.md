@@ -12,8 +12,8 @@ without it, the game still runs fully offline with a local-only tally.
 
 - **Word Search** (flagship mode): drag through a grid to find each hidden
   term, in any of 8 directions.
-- **Spelling Challenge**: tap scrambled letter tiles back into the right
-  order to spell each term.
+- **Spelling Challenge**: type each term correctly, using its jumbled
+  letters (shown as a hint, not tapped) and clue as a guide.
 - **True/False**: judge whether a statement is true or false - a term's
   own situational lead-in (`scenario`/`scenarios`) paired with either its
   own `label` or a different term's (borrowed for a false statement,
@@ -77,7 +77,7 @@ a sortable "Time" column.
   - `word`: a single unbroken token (no spaces), uppercase, ≤ the largest
     grid size any level can roll (currently 14 characters).
   - `meaning`: a short definition/hint shown in Word Search's clue panel
-    and above Spelling Challenge's tiles. Soft limit ~120 characters.
+    and above Spelling Challenge's answer field. Soft limit ~120 characters.
   - `scenario`: a situational lead-in, **not phrased as a question** (e.g.
     "A vendor offers a manager a gift to speed up an order." - not "...
     What value should guide their response?"). True/False glues this
