@@ -468,6 +468,13 @@ h1, h2, h3, .display {
 .complete-screen { text-align: center; padding: 8vh 12px; color: var(--gold-light); }
 .complete-screen .glow { font-size: 3rem; margin-bottom: 16px; }
 .complete-screen p { max-width: 480px; margin: 0 auto 8px; color: var(--paper); opacity: 0.9; }
+.complete-screen .affirmation {
+  font-style: italic;
+  font-size: 1.1rem;
+  color: var(--gold-light);
+  opacity: 1;
+  margin: 18px auto 4px;
+}
 
 @media (max-width: 640px) {
   #app { padding: 20px 14px 44px; }
