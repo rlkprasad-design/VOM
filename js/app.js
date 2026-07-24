@@ -308,7 +308,7 @@ function showNameGate() {
 
 const MODES = [
   { id: 'wordsearch', title: 'Word Search', sub: 'Drag through the grid to find each hidden term.', start: () => startWordSearch() },
-  { id: 'spelling', title: 'Spelling Challenge', sub: 'Unscramble the jumbled letters to spell each term.', start: () => startSpelling() },
+  { id: 'spelling', title: 'Spelling Challenge', sub: 'Type each term correctly from its jumbled letters.', start: () => startSpelling() },
   { id: 'truefalse', title: 'True / False', sub: 'Judge whether each statement is true or false.', start: () => startTrueFalse() },
   { id: 'grouping', title: 'Card Grouping', sub: 'Sort terms into the category each one belongs to.', start: () => startGrouping() },
 ];
@@ -646,11 +646,13 @@ function renderSpellingGame(session) {
       <p class="tagline" style="text-align:center;" data-progress></p>
       <div class="spelling-frame">
         <p class="spelling-meaning" data-meaning></p>
-        <div class="spelling-answer" data-answer></div>
-        <div class="spelling-tiles" data-tiles></div>
+        <p class="spelling-jumbled" data-jumbled></p>
+        <input type="text" class="text-input spelling-input" data-answer-input autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Type your answer" />
+        <p class="spelling-feedback" data-feedback></p>
       </div>
       <div class="game-toolbar">
-        <button type="button" class="btn btn-secondary" data-undo>Undo letter</button>
+        <button type="button" class="btn btn-secondary" data-clear>Clear</button>
+        <button type="button" class="btn btn-primary" data-submit>Submit</button>
         <button type="button" class="btn btn-secondary" data-show-answer>Show answer</button>
       </div>
       ${syncsToBackend() ? `<p class="flag-hint-note" style="text-align:center;">See a wrong or confusing clue? <button type="button" class="btn-link" data-flag-current style="min-height:auto;padding:0;">Report it</button></p>` : ''}
@@ -660,13 +662,14 @@ function renderSpellingGame(session) {
 
   const progressEl = screen.querySelector('[data-progress]');
   const meaningEl = screen.querySelector('[data-meaning]');
-  const answerEl = screen.querySelector('[data-answer]');
-  const tilesEl = screen.querySelector('[data-tiles]');
+  const jumbledEl = screen.querySelector('[data-jumbled]');
+  const inputEl = screen.querySelector('[data-answer-input]');
+  const feedbackEl = screen.querySelector('[data-feedback]');
   const flagBtn = screen.querySelector('[data-flag-current]');
-  const undoBtn = screen.querySelector('[data-undo]');
+  const clearBtn = screen.querySelector('[data-clear]');
+  const submitBtn = screen.querySelector('[data-submit]');
 
-  let typed = []; // indices into item.scrambled, in chosen order
-  let locked = false; // true briefly while showing a correct/wrong/revealed result
+  let locked = false; // true briefly (and while showing a revealed answer) after a term settles
 
   function currentItem() {
     return session.items[session.current];
@@ -677,100 +680,64 @@ function renderSpellingGame(session) {
   }
 
   function renderMeaning() {
-    const item = currentItem();
-    meaningEl.textContent = item.entry.meaning;
+    meaningEl.textContent = currentItem().entry.meaning;
   }
 
-  function renderAnswer() {
-    const item = currentItem();
-    const cells = item.letters.map((_, i) => {
-      const tileIdx = typed[i];
-      const letter = tileIdx !== undefined ? item.scrambled[tileIdx] : '';
-      const revealedClass = item.found && !item.earnedMark ? ' via-hint' : '';
-      const filledClass = letter ? ' filled' : '';
-      return `<span class="answer-slot${filledClass}${revealedClass}">${letter}</span>`;
-    }).join('');
-    answerEl.innerHTML = cells;
-  }
-
-  function renderTiles() {
-    const item = currentItem();
-    tilesEl.innerHTML = '';
-    item.scrambled.forEach((letter, idx) => {
-      const used = typed.includes(idx);
-      const btn = el(`<button type="button" class="letter-tile${used ? ' used' : ''}" data-tile="${idx}" ${used || locked ? 'disabled' : ''}>${letter}</button>`);
-      if (!used && !locked) {
-        btn.addEventListener('click', () => onTileTap(idx));
-      }
-      tilesEl.appendChild(btn);
-    });
+  // The scrambled letters are shown as a hint, not tapped - typing the
+  // actual word is what gets submitted, so a jumbled word like
+  // MERITOCRACY (repeated letters) never needs tile-identity tracking.
+  function renderJumbled() {
+    jumbledEl.textContent = currentItem().scrambled.join(' ');
   }
 
   function renderAll() {
+    locked = false;
     renderProgress();
     renderMeaning();
-    renderAnswer();
-    renderTiles();
+    renderJumbled();
+    feedbackEl.textContent = '';
+    inputEl.value = '';
+    inputEl.disabled = false;
+    inputEl.classList.remove('via-hint');
+    inputEl.focus();
   }
 
-  function onTileTap(idx) {
+  function submitAttempt() {
     if (locked) return;
-    typed.push(idx);
-    renderAnswer();
-    renderTiles();
-    const item = currentItem();
-    if (typed.length === item.letters.length) {
-      checkAnswer();
-    }
-  }
-
-  undoBtn.addEventListener('click', () => {
-    if (locked || !typed.length) return;
-    typed.pop();
-    renderAnswer();
-    renderTiles();
-  });
-
-  function checkAnswer() {
-    const item = currentItem();
-    const built = typed.map((i) => item.scrambled[i]).join('');
-    if (built === item.entry.word) {
+    const attempt = inputEl.value.trim().toUpperCase();
+    if (!attempt) return;
+    if (attempt === currentItem().entry.word) {
       markFound(false);
     } else {
-      locked = true;
-      answerEl.classList.add('wrong');
-      setTimeout(() => {
-        answerEl.classList.remove('wrong');
-        typed = [];
-        locked = false;
-        renderAnswer();
-        renderTiles();
-      }, 500);
+      feedbackEl.textContent = 'Not quite - try again.';
+      inputEl.classList.add('wrong');
+      setTimeout(() => inputEl.classList.remove('wrong'), 400);
     }
   }
+
+  submitBtn.addEventListener('click', submitAttempt);
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitAttempt();
+  });
+  clearBtn.addEventListener('click', () => {
+    if (locked) return;
+    inputEl.value = '';
+    inputEl.focus();
+  });
 
   function markFound(viaHint) {
     const item = currentItem();
     item.found = true;
     item.earnedMark = !viaHint;
-    if (viaHint) {
-      // Rebuild typed as the scrambled tile indices, in an order that
-      // spells the target word - tracked by tile identity (index), not by
-      // letter value, since a word like MERITOCRACY repeats letters.
-      typed = [];
-      const usedIdx = new Set();
-      for (const letter of item.letters) {
-        const idx = item.scrambled.findIndex((l, i) => l === letter && !usedIdx.has(i));
-        usedIdx.add(idx);
-        typed.push(idx);
-      }
-    }
     locked = true;
-    renderAnswer();
-    renderTiles();
-    if (item.earnedMark) {
-      const answerBox = answerEl;
-      popMarkFeedback(answerBox.parentElement, answerBox, item.entry.difficulty);
+    inputEl.value = item.entry.word;
+    inputEl.disabled = true;
+    if (viaHint) {
+      inputEl.classList.add('via-hint');
+      feedbackEl.textContent = 'Shown - no marks earned.';
+    } else {
+      feedbackEl.textContent = 'Correct!';
+      popMarkFeedback(inputEl.parentElement, inputEl, item.entry.difficulty);
     }
     setTimeout(advance, 900);
   }
@@ -778,8 +745,6 @@ function renderSpellingGame(session) {
   function advance() {
     if (session.current + 1 < session.items.length) {
       session.current += 1;
-      typed = [];
-      locked = false;
       renderAll();
     } else {
       recordSpellingProgress(session);
