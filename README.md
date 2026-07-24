@@ -14,12 +14,20 @@ without it, the game still runs fully offline with a local-only tally.
   term, in any of 8 directions.
 - **Spelling Challenge**: type each term correctly, using its jumbled
   letters (shown as a hint, not tapped) and clue as a guide.
-- **True/False**: judge whether a statement is true or false - a term's
-  own situational lead-in (`scenario`/`scenarios`) paired with either its
-  own `label` or a different term's (borrowed for a false statement,
-  preferring one from the same difficulty tier).
+- **True/False** *(currently hidden from the mode picker - see below)*:
+  judge whether a statement is true or false - a term's own situational
+  lead-in (`scenario`/`scenarios`) paired with either its own `label` or a
+  different term's (borrowed for a false statement, preferring one from
+  the same difficulty tier).
 - **Card Grouping**: sort term cards into the category bucket each one
   belongs to, using each entry's existing `source` tag.
+
+True/False is temporarily disabled while its content gets revised - the
+`{ id: 'truefalse', ... }` entry in `MODES` (`js/app.js`) is commented out,
+so players can't reach it, but the exercise code, its content fields
+(`scenario`/`scenarios`/`label`), and its scoreboard column are all left
+in place. Re-enable by uncommenting that one line once the content is
+ready.
 
 All four modes draw from the same content pool (`data/questions.json`)
 but keep independent no-repeat rotations and exposure caps, so playing

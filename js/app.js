@@ -306,10 +306,14 @@ function showNameGate() {
 // additive here, not a rewrite of this screen.
 // ---------------------------------------------------------------------
 
+// True/False is temporarily hidden from the mode picker while its content
+// gets revised - the exercise itself, its content, and its scoreboard
+// column are all left fully intact, only this entry point is commented
+// out. Re-enable by uncommenting the line below.
 const MODES = [
   { id: 'wordsearch', title: 'Word Search', sub: 'Drag through the grid to find each hidden term.', start: () => startWordSearch() },
   { id: 'spelling', title: 'Spelling Challenge', sub: 'Type each term correctly from its jumbled letters.', start: () => startSpelling() },
-  { id: 'truefalse', title: 'True / False', sub: 'Judge whether each statement is true or false.', start: () => startTrueFalse() },
+  // { id: 'truefalse', title: 'True / False', sub: 'Judge whether each statement is true or false.', start: () => startTrueFalse() },
   { id: 'grouping', title: 'Card Grouping', sub: 'Sort terms into the category each one belongs to.', start: () => startGrouping() },
 ];
 
@@ -350,8 +354,8 @@ function showAbout() {
     <div class="intro-screen">
       <h1 class="display" style="text-align:center;">About Management Quest</h1>
       <p>Management Quest is a recall game built to reinforce what you've learned in class about Values-Oriented Management - core values, ethical frameworks, corporate governance, and more.</p>
-      <p>Four exercises draw from the same term list: Word Search, Spelling Challenge, True/False, and Card Grouping.</p>
-      <p>Every round mixes easy, medium, and difficult terms. Easy terms are worth 1 mark, medium terms 3 marks, and difficult terms 6 marks - so recognizing a harder concept is worth visibly more than an easy one. Word Search and Card Grouping are worth double these marks per find, since hunting a word through a grid or correctly recalling its category takes more effort than picking an already-visible letter or making a binary guess.</p>
+      <p>Three exercises draw from the same term list: Word Search, Spelling Challenge, and Card Grouping.</p>
+      <p>Every round mixes easy, medium, and difficult terms. Easy terms are worth 1 mark, medium terms 3 marks, and difficult terms 6 marks - so recognizing a harder concept is worth visibly more than an easy one. Word Search and Card Grouping are worth double these marks per find, since hunting a word through a grid or correctly recalling its category takes more effort than typing an already-jumbled word.</p>
       <p>Find a term yourself to earn its token and marks. Using "Show answer" completes the term but earns nothing, and is always shown in a different color so you can tell a genuine find from a reveal.</p>
       <p>Scores, and time spent playing, sync to a shared class scoreboard. No login is required - just a display name.</p>
       <div class="btn-row" style="margin-top:24px;">
